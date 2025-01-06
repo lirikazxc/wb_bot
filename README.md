@@ -23,5 +23,4 @@ source venv/bin/activate
 
 Установите зависимости:
 
-Копировать код
 pip install -r requirements.txt
