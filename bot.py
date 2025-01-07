@@ -5,6 +5,7 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
 from dotenv import load_dotenv
 import os
+from app.handlers import setup_bot_commands
 
 from app.handlers import router
 load_dotenv()
@@ -21,8 +22,10 @@ dp = Dispatcher(storage=storage)
 
 dp.include_router(router)
 
+
 async def main():
     try:
+        await setup_bot_commands(bot)
         await dp.start_polling(bot)
     except Exception as e:
         logger.error(f"Ошибка при запуске бота: {e}")

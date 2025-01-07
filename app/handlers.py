@@ -277,3 +277,16 @@ async def confirm_delete_shop(call: CallbackQuery, state: FSMContext):
         delete_shop(shop_name)
         await call.message.answer(f"Магазин '{shop_name}' успешно удалён.")
         await call.answer()
+
+
+
+async def setup_bot_commands(bot: Bot):
+    commands = [
+        BotCommand(command="start", description="Начать работу с ботом"),
+        BotCommand(command="help", description="Справка по командам"),
+        BotCommand(command="addshop", description="Добавить магазин"),
+        BotCommand(command="delshop", description="Удалить магазин"),
+        BotCommand(command="shops", description="Список магазинов"),
+        BotCommand(command="report", description="Получить отчет"),
+    ]
+    await bot.set_my_commands(commands)
