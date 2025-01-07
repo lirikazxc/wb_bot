@@ -5,7 +5,7 @@ from aiogram.filters import *
 from aiogram.types import *
 from utils.wildberries_api import WildberriesAPI
 from utils.config_manager import add_shop, delete_shop, list_shops
-from utils.report_formatter import generate_report_from_data
+from utils.report_formatter import *
 from aiogram.fsm.context import FSMContext
 from datetime import datetime, timedelta
 from aiogram import types, Bot
@@ -66,14 +66,46 @@ async def select_shop(call: CallbackQuery, state: FSMContext):
     await state.update_data(shop_name=shop_name)
     await call.answer()
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+    period_keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Сегодня", callback_data="period_today")],
         [InlineKeyboardButton(text="Вчера", callback_data="period_yesterday")],
         [InlineKeyboardButton(text="Последние 7 дней", callback_data="period_last_7_days")],
-        [InlineKeyboardButton(text="Произвольный период", callback_data="period_custom")]
+        [InlineKeyboardButton(text="Кастомный период", callback_data="period_custom")]
     ])
-    await call.message.answer(f"Вы выбрали магазин {shop_name}. Теперь выберите период:", reply_markup=keyboard)
 
+    await call.message.answer(f"Вы выбрали магазин {shop_name}. Теперь выберите период для отчета:", reply_markup=period_keyboard)
+
+
+
+@router.callback_query(F.data.startswith("report_sales"))
+async def report_sales(call: CallbackQuery, state: FSMContext):
+    await call.answer()
+    await fetch_and_send_report(call, state, report_type="sales")
+
+@router.callback_query(F.data.startswith("report_stocks"))
+async def report_stocks(call: CallbackQuery, state: FSMContext):
+    await call.answer()
+    await fetch_and_send_report(call, state, report_type="stocks")
+
+@router.callback_query(F.data.startswith("report_incomes"))
+async def report_incomes(call: CallbackQuery, state: FSMContext):
+    await call.answer()
+    await fetch_and_send_report(call, state, report_type="incomes")
+
+@router.callback_query(F.data.startswith("report_orders"))
+async def report_orders(call: CallbackQuery, state: FSMContext):
+    await call.answer()
+    await fetch_and_send_report(call, state, report_type="orders")
+
+@router.callback_query(F.data.startswith("report_reportDetailByPeriod"))
+async def report_reportDetailByPeriod(call: CallbackQuery, state: FSMContext):
+    await call.answer()
+    await fetch_and_send_report(call, state, report_type="reportDetailByPeriod")
+
+# @router.callback_query(F.data.startsWith("report_all"))
+# async def report_all(call: CallbackQuery, state: FSMContext):
+#     await call.answer()
+#     await fetch_and_send_report(call, state, report_type="all")
 
 
 @router.callback_query(F.data == "period_today")
@@ -81,15 +113,23 @@ async def period_today(call: CallbackQuery, state: FSMContext):
     current_time = datetime.now()
 
     start_date = current_time.replace(hour=0, minute=0, second=0, microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
-
     end_date = (current_time - timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S")
 
     await state.update_data(start_date=start_date, end_date=end_date)
 
     await call.message.answer(f"Вы выбрали период: Сегодня ({start_date} - {end_date})")
-    await call.answer()
 
-    await fetch_and_send_report(call, state)
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Отчет по продажам", callback_data="report_sales")],
+        [InlineKeyboardButton(text="Отчет по остаткам", callback_data="report_stocks")],
+        [InlineKeyboardButton(text="Отчет по поставкам", callback_data="report_incomes")],
+        [InlineKeyboardButton(text="Отчет по заказам", callback_data="report_orders")],
+        [InlineKeyboardButton(text="Детальный отчет по периодам", callback_data="report_reportDetailByPeriod")],
+        # [InlineKeyboardButton(text="Получить все отчеты", callback_data="report_all")]
+    ])
+
+    await call.message.answer("Теперь выберите тип отчета:", reply_markup=keyboard)
+
 
 @router.callback_query(F.data == "period_yesterday")
 async def period_yesterday(call: CallbackQuery, state: FSMContext):
@@ -101,9 +141,18 @@ async def period_yesterday(call: CallbackQuery, state: FSMContext):
     await state.update_data(start_date=start_date, end_date=end_date)
 
     await call.message.answer(f"Вы выбрали период: Вчера ({start_date} - {end_date})")
-    await call.answer()
 
-    await fetch_and_send_report(call, state)
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Отчет по продажам", callback_data="report_sales")],
+        [InlineKeyboardButton(text="Отчет по остаткам", callback_data="report_stocks")],
+        [InlineKeyboardButton(text="Отчет по поставкам", callback_data="report_incomes")],
+        [InlineKeyboardButton(text="Отчет по заказам", callback_data="report_orders")],
+        [InlineKeyboardButton(text="Детальный отчет по периодам", callback_data="report_reportDetailByPeriod")],
+        # [InlineKeyboardButton(text="Получить все отчеты", callback_data="report_all")]
+    ])
+
+    await call.message.answer("Теперь выберите тип отчета:", reply_markup=keyboard)
+
 
 @router.callback_query(F.data == "period_last_7_days")
 async def period_last_7_days(call: CallbackQuery, state: FSMContext):
@@ -115,15 +164,22 @@ async def period_last_7_days(call: CallbackQuery, state: FSMContext):
     await state.update_data(start_date=start_date, end_date=end_date)
 
     await call.message.answer(f"Вы выбрали период: Последние 7 дней ({start_date} - {end_date})")
-    await call.answer()
 
-    await fetch_and_send_report(call, state)
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Отчет по продажам", callback_data="report_sales")],
+        [InlineKeyboardButton(text="Отчет по остаткам", callback_data="report_stocks")],
+        [InlineKeyboardButton(text="Отчет по поставкам", callback_data="report_incomes")],
+        [InlineKeyboardButton(text="Отчет по заказам", callback_data="report_orders")],
+        [InlineKeyboardButton(text="Детальный отчет по периодам", callback_data="report_reportDetailByPeriod")],
+        # [InlineKeyboardButton(text="Получить все отчеты", callback_data="report_all")]
+    ])
+
+    await call.message.answer("Теперь выберите тип отчета:", reply_markup=keyboard)
 
 @router.callback_query(F.data == "period_custom")
 async def period_custom(call: CallbackQuery, state: FSMContext):
     await call.message.answer("Введите дату начала периода (в формате YYYY-MM-DD HH:MM:SS):")
     await state.set_state("waiting_for_start_date")
-
 
 @router.message(StateFilter("waiting_for_start_date"))
 async def set_start_date(message: types.Message, state: FSMContext):
@@ -132,51 +188,77 @@ async def set_start_date(message: types.Message, state: FSMContext):
     await message.answer(f"Дата начала установлена на {start_date}. Теперь введите дату окончания периода:")
     await state.set_state("waiting_for_end_date")
 
-
 @router.message(StateFilter("waiting_for_end_date"))
 async def set_end_date(message: Message, state: FSMContext):
     end_date = message.text.strip()
     await state.update_data(end_date=end_date)
 
-    await fetch_and_send_report(message, state)
-    await state.clear()
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Отчет по продажам", callback_data="report_sales")],
+        [InlineKeyboardButton(text="Отчет по остаткам", callback_data="report_stocks")],
+        [InlineKeyboardButton(text="Отчет по поставкам", callback_data="report_incomes")],
+        [InlineKeyboardButton(text="Отчет по заказам", callback_data="report_orders")],
+        [InlineKeyboardButton(text="Детальный отчет по периодам", callback_data="report_reportDetailByPeriod")],
+        # [InlineKeyboardButton(text="Получить все отчеты", callback_data="report_all")]
+    ])
+
+    await message.answer("Теперь выберите тип отчета:", reply_markup=keyboard)
+    await state.set_state("waiting_for_report_type")
 
 
 
-def load_api_key_by_shop(shop_name: str):
-    with open('config.json', 'r') as f:
-        config = json.load(f)
-
-    for shop in config['shops']:
-        if shop['name'] == shop_name:
-            return shop['api_key']
-
-    return None
-
-
-async def fetch_and_send_report(call: CallbackQuery, state: FSMContext):
+async def fetch_and_send_report(call, state: FSMContext, report_type: str = None):
     user_data = await state.get_data()
     shop_name = user_data.get("shop_name")
     start_date = user_data.get("start_date")
     end_date = user_data.get("end_date")
 
-    api_key = load_api_key_by_shop(shop_name)
+    if not start_date or not end_date:
+        await call.message.answer("Ошибка: Период не задан. Пожалуйста, выберите или введите период.")
+        return
 
-    if api_key is None:
+    api_key = load_api_key_by_shop(shop_name)
+    if not api_key:
         await call.message.answer(f"Ошибка: не найден API ключ для магазина '{shop_name}'.")
         return
 
-    wb_api = WildberriesAPI(api_url="https://seller-analytics-api.wildberries.ru/api/v2/nm-report/detail",
-                            api_key=api_key)
+    endpoint_map = {
+        "sales": "https://statistics-api.wildberries.ru/api/v1/supplier",
+        "stocks": "https://statistics-api.wildberries.ru/api/v1/supplier",
+        "incomes": "https://statistics-api.wildberries.ru/api/v1/supplier",
+        "orders": "https://statistics-api.wildberries.ru/api/v1/supplier",
+        "reportDetailByPeriod": "https://statistics-api.wildberries.ru/api/v5/supplier",
+    }
 
-    report_data = wb_api.get_sales_data(start_date, end_date)
+    endpoint = endpoint_map.get(report_type, endpoint_map["sales"])
 
-    report = generate_report_from_data(report_data)
+    wb_api = WildberriesAPI(api_url=endpoint, api_key=api_key)
 
-    if report:
+    report_data = wb_api.get_sales_data(start_date, end_date) if report_type == "sales" else None
+    if report_type == "stocks":
+        report_data = wb_api.get_stocks_data(start_date, end_date)
+    elif report_type == "incomes":
+        report_data = wb_api.get_incomes_data(start_date, end_date)
+    elif report_type == "orders":
+        report_data = wb_api.get_orders_data(start_date, end_date)
+    elif report_type == "reportDetailByPeriod":
+        report_data = wb_api.get_reportDetailByPeriod_data(start_date, end_date)
+
+    if report_data:
+        if report_type == "sales":
+            report = await handle_sales_report(report_data)
+        elif report_type == "stocks":
+            report = await handle_stocks_report(report_data)
+        elif report_type == "incomes":
+            report = await handle_incomes_report(report_data)
+        elif report_type == "orders":
+            report = await handle_orders_report(report_data)
+        elif report_type == "reportDetailByPeriod":
+            report = await handle_reportDetailByPeriod(report_data)
+
         await send_report_as_text(call, report)
     else:
-        await call.message.answer("Не удалось получить данные о продажах.")
+        await call.message.answer("Не удалось получить данные.")
 
 async def send_report_as_text(call, report):
     max_length = 4096
@@ -290,3 +372,20 @@ async def setup_bot_commands(bot: Bot):
         BotCommand(command="report", description="Получить отчет"),
     ]
     await bot.set_my_commands(commands)
+
+
+def load_api_key_by_shop(shop_name: str) -> str:
+    try:
+        with open('config.json', 'r') as f:
+            config = json.load(f)
+
+        for shop in config['shops']:
+            if shop['name'] == shop_name:
+                return shop['api_key']
+
+        return None
+
+    except FileNotFoundError:
+        return None
+    except json.JSONDecodeError:
+        return None
